@@ -1,0 +1,15 @@
+---
+title: "P8105 HW2"
+author: "Ngoc Duong"
+date: "9/25/2019"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+
+
+
+
+```
