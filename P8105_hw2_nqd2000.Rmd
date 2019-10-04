@@ -151,7 +151,6 @@ baby_name_data %>% filter(name == "olivia") %>%        # filter with name "olivi
                        values_from = "rank") %>% 
                    knitr::kable()                      # make table using kable 
 ```
-Values in the cells are rank of popularity for the name Olivia 
 
 ```{r popular male name table, message = FALSE, warning = FALSE}
 # Most popular male name table
