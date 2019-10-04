@@ -1,15 +1,12 @@
 ---
 title: "P8105 HW2"
 author: "Ngoc Duong"
-date: "9/25/2019"
+date: "10/03/2019"
 output: github_document
+editor_options: 
+  chunk_output_type: console
 ---
 
-```{r setup, include=FALSE}
+```{r setup, message=FALSE, warning=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-
-
-
-
-
 ```
