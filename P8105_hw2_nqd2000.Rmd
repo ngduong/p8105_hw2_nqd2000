@@ -122,3 +122,60 @@ The resulting dataset `aggregate_data` is a `r nrow(aggregate_data)` x `r ncol(a
 
 It might also be worth noting that, `pols_data` contains months from 01/1947 to 06/2015, whereas `snp_data` covers months from 01/1950 to 07/2015 and `unemployment_data` covers 01/1948 to 06/2015, so there is a slight misalignment in time across these three datasets. Since we are merging `unemployment_data` and `snp_data` into `pols_data` (the "reference" dataset) using `left_join` and by `year` and `month`, this will result in missing data (NA's) in variables `close` (from `snp_data`) and `unemployment_rate` (from `unemployment_data`) during the period from 01/1947 to 01/1948 and 01/1950. Additionally, `close` datapoints after 06/2015 was dropped due to the same principle with left joining that's mentioned above.
 
+### Problem 3
+```{r message=FALSE, warning=FALSE}
+
+baby_name_data <- read_csv("./subdirectory/Popular_Baby_Names.csv") %>% 
+                  janitor::clean_names() %>% 
+                  distinct() %>%        # use distinct() to get rid of duplicated rows
+                  rename(name = childs_first_name, birthyear = year_of_birth) %>% # rename to avoid typing long strings
+                  mutate(ethnicity = str_to_lower(ethnicity),  # standardize strings to lower case/to address inconsistent case structure more easily 
+                         gender = str_to_lower(gender),
+                         name = str_to_lower(name)) %>% 
+                  mutate(ethnicity = as.factor(ethnicity),     
+                         gender = as.factor(gender)) %>%      # turn ethnicity and gender into level/factor variables
+                  mutate(ethnicity = 
+                           recode(ethnicity, "asian and paci" = "asian and pacific islander",
+                                  "black non hisp" = "black non hispanic",
+                                  "white non hisp" = "white non hispanic")) %>% # rename duplicated factors/levels within ethnicity 
+                  arrange(birthyear)   # arrange by year so data is organized
+```
+Side comment: I used summary(pull(baby_name_data,ethnicity)) to inspect the levels inside ethnicity variable before recode the levels.
+
+```{r name tables, message = FALSE, warning = FALSE}
+# table showing the rank in popularity of the name "Olivia"
+baby_name_data %>% filter(name == "olivia") %>%        # filter with name "olivia" as criterion
+                   select(-c("name","gender","count")) %>% # deslect name, gender (unnecessary) and count (unique values will mess up pivot_wider table output) 
+                   pivot_wider(
+                       names_from = "birthyear",       # show birthyear as variabl
+                       values_from = "rank") %>% 
+                   knitr::kable()                      # make table using kable 
+```
+Values in the cells are rank of popularity for the name Olivia 
+
+```{r popular male name table, message = FALSE, warning = FALSE}
+# Most popular male name table
+baby_name_data %>% filter(gender == "male" & rank == 1) %>% # filter with male and rank 1 as criteria 
+                   select(-c("count", "gender", "rank")) %>%                  # deselect count (whose unique/non-collapsible values will affect how pivot_wider works), gender and rank because they are implied when subsetting
+                   pivot_wider(
+                       names_from = "birthyear",            # take birthyear values to make variables (columns) and most popular names as values (observations)
+                       values_from = "name") %>%              
+                   knitr::kable()                           #make table using kable 
+```
+
+```{r male non hispanic white scatterplot, message=FALSE, warning=FALSE}
+white_male_table <- baby_name_data %>% 
+                    filter(gender == "male" &      
+                           birthyear == 2016 & 
+                           ethnicity == "white non hispanic") %>% # filter with male, white non-hispanic, and birthyear of 2016 as criteria 
+                    arrange(count)                 # arrange count so dataset looks more organized
+
+# scatterplot for number of children with (count on y axis) against popularity rank (x axis)
+ggplot(white_male_table, aes(x= rank, y= count)) +
+  geom_point(col = 4, alpha = .3) +
+  labs(
+    y="Count of names", 
+    x = "Popularity rank from 1-100") + # adding name for x- and y-axis 
+  ggtitle("Count of names and their rank in popularity for \nmale white non-hispanic children born in 2016")                 #adding title for scatterplot
+```
+
