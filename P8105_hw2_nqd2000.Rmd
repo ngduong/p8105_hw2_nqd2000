@@ -61,3 +61,64 @@ precip_merged =
 Mr. Trash Wheel dataset has `r nrow(trash_data)` observations (rows) of `r ncol(trash_data)` variables. Key dumpster- and time-specific (identifying) variables include ``r names(trash_data)[1:4]``, and dumpster characteristic variables are ``r names(trash_data)[5:7]``, while the rest, such as ``r names(trash_data)[7:11]``, etc. show the amounts of each trash type in the dumpsters. More specifically, for example, median number of sports balls in a dumpster in 2017 was `r trash_data %>% filter(year == "2017") %>% summarize(median(sports_balls))` balls.
 
 The 2017 preciptation dataset has `r count(precip_2017)` observations, and the 2018 precipitation dataset has `r count(precip_2018)` observations. Key variables for both precipitation datasets include `month`, `year`, and `precip_total` denoting total precipitation for each month. Total precipitation in 2018 (for the months with available data) was `r sum(pull(precip_merged, precip_2018), na.rm = TRUE)`, while total precipitation in 2017 was `r sum(pull(precip_merged, precip_2017), na.rm = TRUE)`. 
+
+### Problem 2
+```{r message=FALSE, warning=FALSE}
+#import and clean pols dataset, arrange by year and month
+pols_data <- read_csv("./subdirectory/pols-month.csv") %>% 
+                  separate(mon, c("year","month","day")) %>%    # break up variable mon into integers variables year, month, and day
+                  mutate(
+                    month = as.numeric(month), 
+                    year = as.numeric(year)) %>%                # make year and month numeric for month.abb[]
+                  mutate(month = str_to_lower(month.abb[month]) # turn month into character using month.abb[] and standardize to lower case 
+                    ) %>% 
+                  arrange(year, match(month,month.abb)) %>%    # arrange year and month (using match to align character variable 'month' with pre-set month.abb)
+                  mutate(
+                    prez_gop = replace(prez_gop, prez_gop == 2, 1)) %>% # turn value 2 in prez_gop to 1 because they both indicate a republican president at that point in time 
+                  mutate(
+                    president =  prez_gop - prez_dem) %>%     # make numeric variable president combining data from prez_gop and prez_dem
+                  mutate(
+                    president = recode(president, `-1` = "dem", `1` = "gop")) %>% # recode president from numeric to character demonstrating dem or gop 
+                  select(year, month, everything(), -c("prez_dem","prez_gop","day")) # make year and month leading columns and deselect unnecessary variables (captured somewhere else) 
+```
+
+```{r snp data, message=FALSE, warning=FALSE}
+#import and clean snp data, arrange by year and month, and make them leading columns
+snp_data <- read_csv("./subdirectory/snp.csv") %>% 
+            separate(date, c("month","day","year")) %>%  # break up variable mon into integers variables year, month, and day
+                  mutate(
+                    month = as.numeric(month),       
+                    year = as.numeric(year)) %>%         # make numeric to arrange 
+                  arrange(year, month) %>%               # arrange year and month 
+                  mutate(
+                    month = str_to_lower(month.abb[month])) %>%  # # turn month into character using month.abb[] and standardize to lower case 
+                  select(year, month, close, -day)       # select neccessary variables and rearrange so year and month are leading columns
+```
+
+```{r unemployment data, message=FALSE, warning=FALSE}
+#import and clean snp data, arrange by year and month, and make them leading columns
+unemployment_data <- read_csv("./subdirectory/unemployment.csv") %>% 
+                  janitor::clean_names() %>% 
+                  pivot_longer(jan:dec,      #switching from “wide” to “long” format using pivot_longer
+                               values_to = "unemployment_rate",  
+                               names_to = "month") %>%          
+                  arrange(year, match(month,month.abb))  # arrange so data looks organized
+
+# joining snp_data into pols_data using left_join, joining by year and month
+aggregate_data <- left_join(
+  pols_data, snp_data, by = c("year", "month"))
+
+# joining unemployment_data into the pols-and-snp-aggregate data using left_join, joining by year and month
+aggregate_data <- left_join(
+  aggregate_data, unemployment_data, by = c("year","month")) %>%
+                  arrange(year, match(month, month.abb)) # arrange year and month 
+```
+
+`unemployment_data`'s key variables (after cleaning) are ``r names(unemployment_data)``, which specify time points (monthly) across years and show the corresponding unemployment rate at each time point. `snp_data`'s key variables (after cleaning) include ``r names(snp_data)``,  which also specify time points (monthly) across years and show the corresponding closing Standard & Poor’s stock at each time point over the years.
+
+`pols_data` also contains time-specific variables (`month` and `year`), and more importantly, the political affiliation of the President at each presented point in time, denoted by `president`. On top of that, `r names(pols_data)[3:8]` are variables that show the number of governors, senators, and representatives by democratic and republican affiliation at each (monthly) point in time over the years. 
+
+The resulting dataset `aggregate_data` is a `r nrow(aggregate_data)` x `r ncol(aggregate_data)` dataframe. Variable `year`'s range is `r min(pull(aggregate_data,year))` - `r max(pull(aggregate_data,year))`, and names of key variables are ``r names(aggregate_data)[c(1:2,9:11)]``. 
+
+It might also be worth noting that, `pols_data` contains months from 01/1947 to 06/2015, whereas `snp_data` covers months from 01/1950 to 07/2015 and `unemployment_data` covers 01/1948 to 06/2015, so there is a slight misalignment in time across these three datasets. Since we are merging `unemployment_data` and `snp_data` into `pols_data` (the "reference" dataset) using `left_join` and by `year` and `month`, this will result in missing data (NA's) in variables `close` (from `snp_data`) and `unemployment_rate` (from `unemployment_data`) during the period from 01/1947 to 01/1948 and 01/1950. Additionally, `close` datapoints after 06/2015 was dropped due to the same principle with left joining that's mentioned above.
+
